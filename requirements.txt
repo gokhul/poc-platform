@@ -1,0 +1,271 @@
+# LLM Platform - System Requirements and Dependencies
+# Last Updated: October 2024
+# Version: 1.0.0
+
+# =============================================================================
+# SYSTEM REQUIREMENTS
+# =============================================================================
+
+# Operating System
+# - macOS 10.15+ (tested on macOS 14.6.0)
+# - Linux (Ubuntu 20.04+ recommended)
+# - Windows 10+ with WSL2
+
+# Hardware Requirements
+# - RAM: 8GB minimum, 16GB recommended
+# - Storage: 10GB free space minimum
+# - CPU: 4 cores minimum, 8 cores recommended
+
+# Network
+# - Internet connection for downloading dependencies
+# - Ports 8000, 5173, 54321, 6380, 6333, 6334, 9092, 3002, 9002, 9003, 3000 available
+
+# =============================================================================
+# CORE DEPENDENCIES
+# =============================================================================
+
+# Docker and Container Runtime
+# - Docker Desktop 4.0+ (tested on Docker 28.2.2)
+# - Docker Compose 2.0+
+# - Git 2.30+
+
+# Node.js and Frontend Dependencies
+# - Node.js 20+ (tested on Node.js 20-alpine)
+# - npm 10.0+ (comes with Node.js)
+# - Vite 5.0+
+
+# Python and Backend Dependencies
+# - Python 3.11+ (tested on Python 3.11-slim)
+# - pip 23.0+
+
+# =============================================================================
+# DOCKER IMAGES REQUIRED
+# =============================================================================
+
+# Base Images
+# - python:3.11-slim
+# - node:20-alpine
+# - postgres:15-alpine
+# - redis:7-alpine
+# - qdrant/qdrant:latest
+# - prom/prometheus:latest
+# - grafana/grafana:latest
+# - minio/minio:latest
+# - langfuse/langfuse:latest
+
+# =============================================================================
+# BACKEND PYTHON DEPENDENCIES
+# =============================================================================
+
+# Core Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+email-validator==2.1.0
+
+# Database
+sqlalchemy==2.0.23
+alembic==1.13.0
+psycopg2-binary==2.9.9
+asyncpg==0.29.0
+
+# HTTP Client
+httpx==0.25.2
+
+# Utilities
+python-dotenv==1.0.0
+
+# Additional Backend Dependencies (if needed)
+# aioredis==2.0.1
+# qdrant-client==1.6.9
+# langfuse==2.0.0
+# openai==1.3.0
+# anthropic==0.7.0
+
+# =============================================================================
+# FRONTEND NODE.JS DEPENDENCIES
+# =============================================================================
+
+# Core React Dependencies
+react==18.2.0
+react-dom==18.2.0
+react-router-dom==6.20.0
+
+# State Management and Data Fetching
+@tanstack/react-query==5.12.0
+zustand==4.4.7
+axios==1.6.2
+
+# UI Components and Styling
+clsx==2.0.0
+tailwind-merge==2.1.0
+lucide-react==0.294.0
+class-variance-authority==0.7.0
+
+# Radix UI Components
+@radix-ui/react-slot==1.0.2
+@radix-ui/react-dialog==1.0.5
+@radix-ui/react-dropdown-menu==2.0.6
+@radix-ui/react-select==2.0.0
+@radix-ui/react-tabs==1.0.4
+@radix-ui/react-label==2.0.2
+@radix-ui/react-toast==1.1.5
+
+# Charts and Utilities
+recharts==2.10.3
+date-fns==3.0.0
+
+# Development Dependencies
+@types/react==18.2.43
+@types/react-dom==18.2.17
+@typescript-eslint/eslint-plugin==6.14.0
+@typescript-eslint/parser==6.14.0
+@vitejs/plugin-react==4.2.1
+eslint==8.55.0
+eslint-plugin-react-hooks==4.6.0
+eslint-plugin-react-refresh==0.4.5
+typescript==5.2.2
+vite==5.0.8
+tailwindcss==3.3.6
+autoprefixer==10.4.16
+postcss==8.4.32
+
+# =============================================================================
+# INFRASTRUCTURE DEPENDENCIES
+# =============================================================================
+
+# Database
+# - PostgreSQL 15+
+# - Redis 7+
+
+# Vector Database
+# - Qdrant (latest)
+
+# Monitoring and Observability
+# - Prometheus (latest)
+# - Grafana (latest)
+# - Langfuse (latest)
+
+# Object Storage
+# - MinIO (latest)
+
+# =============================================================================
+# ENVIRONMENT VARIABLES REQUIRED
+# =============================================================================
+
+# Database Configuration
+# DATABASE_URL=postgresql+asyncpg://llmuser:llmpass@postgres:5432/llmplatform
+# REDIS_URL=redis://redis:6379/0
+
+# External Services
+# LANGFUSE_HOST=http://langfuse:3000
+# LANGFUSE_PUBLIC_KEY=pk-lf-test
+# LANGFUSE_SECRET_KEY=sk-lf-test
+# QDRANT_HOST=qdrant
+# QDRANT_PORT=6333
+# LITELLM_PROXY_URL=http://litellm:4000
+
+# Security
+# SECRET_KEY=super-secret-key-change-in-production-12345
+# ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
+# ENVIRONMENT=development
+
+# =============================================================================
+# PORT CONFIGURATION
+# =============================================================================
+
+# Application Ports
+# - Frontend: 5173
+# - Backend API: 8000
+# - PostgreSQL: 54321 (external), 5432 (internal)
+# - Redis: 6380 (external), 6379 (internal)
+# - Qdrant: 6333-6334
+# - Prometheus: 9092
+# - Grafana: 3002
+# - MinIO API: 9002
+# - MinIO Console: 9003
+# - Langfuse: 3000
+
+# =============================================================================
+# INSTALLATION COMMANDS
+# =============================================================================
+
+# 1. Install Docker Desktop
+# Download from: https://www.docker.com/products/docker-desktop/
+
+# 2. Install Node.js (if running frontend locally)
+# Download from: https://nodejs.org/ (version 20+)
+
+# 3. Install Python (if running backend locally)
+# Download from: https://python.org/ (version 3.11+)
+
+# 4. Install Git
+# Download from: https://git-scm.com/
+
+# 5. Clone Repository
+# git clone https://github.com/gokhul/poc-platform.git
+# cd poc-platform
+
+# 6. Install Frontend Dependencies (if running locally)
+# cd frontend
+# npm install
+
+# 7. Install Backend Dependencies (if running locally)
+# cd backend
+# pip install -r requirements.txt
+
+# 8. Start Application
+# docker-compose up --build -d
+
+# =============================================================================
+# VERIFICATION COMMANDS
+# =============================================================================
+
+# Check Docker Installation
+# docker --version
+# docker-compose --version
+
+# Check Node.js Installation
+# node --version
+# npm --version
+
+# Check Python Installation
+# python --version
+# pip --version
+
+# Check Application Health
+# curl http://localhost:8000/health
+# curl http://localhost:5173
+
+# Check All Services
+# docker-compose ps
+
+# =============================================================================
+# TROUBLESHOOTING REFERENCES
+# =============================================================================
+
+# See docs/troubleshooting.md for detailed troubleshooting guide
+# Common issues:
+# - Port conflicts
+# - Docker image corruption
+# - Tailwind CSS errors
+# - Database connection issues
+# - Network connectivity problems
+
+# =============================================================================
+# SUPPORT AND DOCUMENTATION
+# =============================================================================
+
+# Repository: https://github.com/gokhul/poc-platform
+# Documentation: docs/
+# Troubleshooting: docs/troubleshooting.md
+# API Documentation: http://localhost:8000/api/docs (when running)
+
+# =============================================================================
+# VERSION INFORMATION
+# =============================================================================
+
+# Application Version: 1.0.0
+# Last Updated: October 2024
+# Compatible with: Docker 28.2.2, Node.js 20, Python 3.11
