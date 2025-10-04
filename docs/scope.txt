@@ -1,0 +1,852 @@
+Build a comprehensive, unified LLM operations platform that integrates multiple open-source solutions into a cohesive product. The platform will serve as the control center for all LLM operations, providing a unified interface to manage models, prompts, evaluations, observability, and deployments.
+Core Architecture Principles
+1. Integration-First Design
+
+All components must communicate through standardized interfaces
+Event-driven architecture for real-time updates across modules
+Shared data models and schemas across all integrated solutions
+Single sign-on (SSO) and unified authentication
+
+2. Data Flow Architecture
+User Request → API Gateway → Service Mesh → Component Services
+                    ↓
+            Event Bus (Kafka)
+                    ↓
+    Observability Layer (Langfuse) → Evaluation Layer (Ragas/DeepEval)
+                    ↓
+            Vector Store (Qdrant) ← Embeddings Service
+                    ↓
+            Analytics DB (PostgreSQL + TimescaleDB)
+Technology Stack (Confirmed)
+Core Platform Layer
+
+Backend Framework: FastAPI (Python 3.11+)
+Frontend Framework: React 18 + TypeScript + Vite
+State Management: Zustand + React Query
+UI Components: shadcn/ui + Tailwind CSS
+API Documentation: OpenAPI 3.1 with Swagger UI
+
+Integration Layer
+
+Model Gateway: LiteLLM (unified interface)
+Model Serving: vLLM (for self-hosted models)
+Prompt Management: Custom layer + LangChain templates
+Observability: Langfuse (primary) + OpenLLMetry
+Evaluation: Ragas + DeepEval
+Vector DB: Qdrant
+Workflow Engine: LangGraph
+Safety Layer: LLM Guard + Presidio
+Fine-tuning: Axolotl
+
+Infrastructure Layer
+
+Container Orchestration: Docker Compose (dev) → Kubernetes (prod)
+Message Queue: Kafka
+Cache: Redis (session + semantic cache)
+Primary DB: PostgreSQL 15 with pgvector
+Time-Series DB: TimescaleDB (extension)
+Object Storage: MinIO (S3-compatible)
+Service Mesh: Istio (for production)
+API Gateway: Kong or Traefik
+
+DevOps & Monitoring
+
+CI/CD: GitHub Actions
+Monitoring: Prometheus + Grafana
+Tracing: Jaeger
+Logging: ELK Stack (Elasticsearch, Logstash, Kibana)
+Secret Management: HashiCorp Vault
+
+Detailed Implementation Plan
+Phase 1: Foundation & Core Infrastructure (Weeks 1-3)
+Week 1: Project Setup & Infrastructure Bootstrapping
+Task 1.1: Repository Structure
+llm-platform/
+├── backend/
+│   ├── api/              # FastAPI application
+│   ├── services/         # Business logic layer
+│   ├── integrations/     # Wrapper services for OSS tools
+│   ├── models/           # Data models & schemas
+│   ├── core/             # Shared utilities
+│   └── tests/
+├── frontend/
+│   ├── src/
+│   │   ├── components/   # React components
+│   │   ├── pages/        # Page components
+│   │   ├── services/     # API clients
+│   │   ├── hooks/        # Custom React hooks
+│   │   ├── store/        # State management
+│   │   └── types/        # TypeScript definitions
+├── infrastructure/
+│   ├── docker/           # Dockerfiles
+│   ├── kubernetes/       # K8s manifests
+│   ├── terraform/        # Infrastructure as code
+│   └── scripts/          # Setup & utility scripts
+├── integrations/
+│   ├── langfuse/         # Langfuse configuration
+│   ├── qdrant/           # Vector DB setup
+│   ├── litellm/          # Model gateway config
+│   └── ...               # Other integrations
+└── docs/                 # Documentation
+
+Task 1.2: Docker Compose Setup
+Create docker-compose.yml with all services:
+yamlservices:
+  # Core Platform Services
+  api:
+    build: ./backend
+    environment:
+      - DATABASE_URL=postgresql://user:pass@postgres:5432/llmplatform
+      - REDIS_URL=redis://redis:6379
+      - KAFKA_BROKERS=kafka:9092
+  
+  frontend:
+    build: ./frontend
+    depends_on: [api]
+  
+  # Data Layer
+  postgres:
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+  
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+  
+  # Vector Database
+  qdrant:
+    image: qdrant/qdrant:latest
+    volumes:
+      - qdrant_data:/qdrant/storage
+  
+  # Message Queue
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+  
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+  
+  # Model Gateway
+  litellm:
+    image: ghcr.io/berriai/litellm:latest
+    environment:
+      - DATABASE_URL=postgresql://user:pass@postgres:5432/litellm
+  
+  # Observability
+  langfuse:
+    image: langfuse/langfuse:latest
+    environment:
+      - DATABASE_URL=postgresql://user:pass@postgres:5432/langfuse
+      - NEXTAUTH_URL=http://localhost:3000
+  
+  # Model Serving (vLLM)
+  vllm:
+    image: vllm/vllm-openai:latest
+    command: --model mistralai/Mistral-7B-Instruct-v0.2
+    volumes:
+      - model_cache:/root/.cache/huggingface
+  
+  # Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./infrastructure/prometheus:/etc/prometheus
+  
+  grafana:
+    image: grafana/grafana:latest
+    volumes:
+      - grafana_data:/var/lib/grafana
+  
+  # Object Storage
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+
+Task 1.3: Database Schema Design
+Create unified schema in PostgreSQL:
+sql-- Core Entities
+CREATE TABLE organizations (
+    id UUID PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE users (
+    id UUID PRIMARY KEY,
+    organization_id UUID REFERENCES organizations(id),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    role VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE projects (
+    id UUID PRIMARY KEY,
+    organization_id UUID REFERENCES organizations(id),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    settings JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Model Management
+CREATE TABLE model_configs (
+    id UUID PRIMARY KEY,
+    project_id UUID REFERENCES projects(id),
+    provider VARCHAR(50) NOT NULL,
+    model_name VARCHAR(255) NOT NULL,
+    config JSONB NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Prompt Management
+CREATE TABLE prompt_templates (
+    id UUID PRIMARY KEY,
+    project_id UUID REFERENCES projects(id),
+    name VARCHAR(255) NOT NULL,
+    version INTEGER NOT NULL,
+    template TEXT NOT NULL,
+    variables JSONB,
+    metadata JSONB,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(project_id, name, version)
+);
+
+CREATE TABLE prompt_deployments (
+    id UUID PRIMARY KEY,
+    prompt_template_id UUID REFERENCES prompt_templates(id),
+    environment VARCHAR(50) NOT NULL, -- dev, staging, prod
+    deployed_at TIMESTAMP DEFAULT NOW(),
+    deployed_by UUID REFERENCES users(id)
+);
+
+-- Request Tracking (linked to Langfuse)
+CREATE TABLE llm_requests (
+    id UUID PRIMARY KEY,
+    project_id UUID REFERENCES projects(id),
+    prompt_template_id UUID REFERENCES prompt_templates(id),
+    model_config_id UUID REFERENCES model_configs(id),
+    langfuse_trace_id VARCHAR(255),
+    input_tokens INTEGER,
+    output_tokens INTEGER,
+    latency_ms INTEGER,
+    cost_usd DECIMAL(10, 6),
+    status VARCHAR(50),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Evaluation Results (linked to Ragas/DeepEval)
+CREATE TABLE evaluations (
+    id UUID PRIMARY KEY,
+    project_id UUID REFERENCES projects(id),
+    eval_type VARCHAR(50) NOT NULL, -- ragas, deepeval, custom
+    config JSONB NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE evaluation_results (
+    id UUID PRIMARY KEY,
+    evaluation_id UUID REFERENCES evaluations(id),
+    llm_request_id UUID REFERENCES llm_requests(id),
+    metrics JSONB NOT NULL,
+    passed BOOLEAN,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Dataset Management
+CREATE TABLE datasets (
+    id UUID PRIMARY KEY,
+    project_id UUID REFERENCES projects(id),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    type VARCHAR(50) NOT NULL, -- training, evaluation, golden
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE dataset_items (
+    id UUID PRIMARY KEY,
+    dataset_id UUID REFERENCES datasets(id),
+    input JSONB NOT NULL,
+    expected_output JSONB,
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Workflow Management (LangGraph)
+CREATE TABLE workflows (
+    id UUID PRIMARY KEY,
+    project_id UUID REFERENCES projects(id),
+    name VARCHAR(255) NOT NULL,
+    graph_definition JSONB NOT NULL,
+    version INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE workflow_executions (
+    id UUID PRIMARY KEY,
+    workflow_id UUID REFERENCES workflows(id),
+    status VARCHAR(50) NOT NULL,
+    input JSONB,
+    output JSONB,
+    trace_data JSONB,
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP
+);
+
+-- Cost Tracking
+CREATE TABLE cost_budgets (
+    id UUID PRIMARY KEY,
+    project_id UUID REFERENCES projects(id),
+    period VARCHAR(50) NOT NULL, -- daily, weekly, monthly
+    limit_usd DECIMAL(10, 2),
+    alert_threshold DECIMAL(5, 2), -- percentage
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Enable TimescaleDB for time-series data
+CREATE EXTENSION IF NOT EXISTS timescaledb;
+SELECT create_hypertable('llm_requests', 'created_at');
+SELECT create_hypertable('evaluation_results', 'created_at');
+
+-- Indexes for performance
+CREATE INDEX idx_llm_requests_project ON llm_requests(project_id, created_at DESC);
+CREATE INDEX idx_llm_requests_trace ON llm_requests(langfuse_trace_id);
+CREATE INDEX idx_prompt_templates_project ON prompt_templates(project_id, name, version DESC);
+CREATE INDEX idx_evaluations_project ON evaluations(project_id, created_at DESC);
+Week 2: Core API Development
+Task 2.1: FastAPI Application Structure
+python# backend/api/main.py
+from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
+
+from api.routers import (
+    auth, projects, models, prompts, 
+    requests, evaluations, datasets, workflows
+)
+from core.config import settings
+from core.database import engine
+from core.middleware import RequestLoggingMiddleware
+
+app = FastAPI(
+    title="LLM Platform API",
+    version="1.0.0",
+    docs_url="/api/docs",
+    openapi_url="/api/openapi.json"
+)
+
+# Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.add_middleware(RequestLoggingMiddleware)
+
+# Prometheus metrics
+Instrumentator().instrument(app).expose(app)
+
+# Routers
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
+app.include_router(models.router, prefix="/api/models", tags=["models"])
+app.include_router(prompts.router, prefix="/api/prompts", tags=["prompts"])
+app.include_router(requests.router, prefix="/api/requests", tags=["requests"])
+app.include_router(evaluations.router, prefix="/api/evaluations", tags=["evaluations"])
+app.include_router(datasets.router, prefix="/api/datasets", tags=["datasets"])
+app.include_router(workflows.router, prefix="/api/workflows", tags=["workflows"])
+
+@app.on_event("startup")
+async def startup():
+    # Initialize connections
+    await init_kafka_producer()
+    await init_redis_pool()
+    await init_langfuse_client()
+    
+@app.on_event("shutdown")
+async def shutdown():
+    await close_connections()
+Task 2.2: Integration Services Layer
+LiteLLM Integration
+python# backend/integrations/litellm_service.py
+from typing import Dict, Any, List
+import litellm
+from litellm import completion
+from core.observability import trace_llm_call
+
+class LiteLLMService:
+    def __init__(self):
+        self.setup_callbacks()
+    
+    def setup_callbacks(self):
+        """Setup Langfuse callback for LiteLLM"""
+        litellm.success_callback = ["langfuse"]
+        litellm.failure_callback = ["langfuse"]
+        
+    async def complete(
+        self,
+        model: str,
+        messages: List[Dict[str, str]],
+        project_id: str,
+        prompt_template_id: str = None,
+        metadata: Dict[str, Any] = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Unified completion call with automatic observability
+        """
+        # Add metadata for tracing
+        trace_metadata = {
+            "project_id": project_id,
+            "prompt_template_id": prompt_template_id,
+            **(metadata or {})
+        }
+        
+        # Make completion call
+        response = await completion(
+            model=model,
+            messages=messages,
+            metadata=trace_metadata,
+            **kwargs
+        )
+        
+        # Extract metrics
+        usage = response.usage
+        trace_id = response._hidden_params.get("langfuse_trace_id")
+        
+        # Store request metadata in our DB
+        await self._store_request(
+            project_id=project_id,
+            prompt_template_id=prompt_template_id,
+            model=model,
+            trace_id=trace_id,
+            input_tokens=usage.prompt_tokens,
+            output_tokens=usage.completion_tokens,
+            response=response
+        )
+        
+        return {
+            "response": response,
+            "trace_id": trace_id,
+            "usage": usage
+        }
+    
+    async def _store_request(self, **kwargs):
+        """Store request metadata in PostgreSQL"""
+        # Implementation to link with our database
+        pass
+Langfuse Integration
+python# backend/integrations/langfuse_service.py
+from langfuse import Langfuse
+from typing import Dict, Any, List
+import asyncio
+
+class LangfuseService:
+    def __init__(self):
+        self.client = Langfuse(
+            public_key=settings.LANGFUSE_PUBLIC_KEY,
+            secret_key=settings.LANGFUSE_SECRET_KEY,
+            host=settings.LANGFUSE_HOST
+        )
+    
+    async def get_traces(
+        self,
+        project_id: str,
+        start_date: datetime = None,
+        end_date: datetime = None,
+        filters: Dict[str, Any] = None
+    ) -> List[Dict]:
+        """Fetch traces with project filtering"""
+        traces = await asyncio.to_thread(
+            self.client.get_traces,
+            user_id=project_id,
+            from_timestamp=start_date,
+            to_timestamp=end_date,
+            **filters or {}
+        )
+        return traces
+    
+    async def get_trace_details(self, trace_id: str) -> Dict:
+        """Get detailed trace information"""
+        trace = await asyncio.to_thread(
+            self.client.get_trace,
+            trace_id
+        )
+        return {
+            "id": trace.id,
+            "name": trace.name,
+            "observations": trace.observations,
+            "metadata": trace.metadata,
+            "scores": trace.scores,
+            "latency": trace.latency,
+            "cost": trace.calculated_total_cost
+        }
+    
+    async def add_score(
+        self,
+        trace_id: str,
+        name: str,
+        value: float,
+        comment: str = None
+    ):
+        """Add evaluation score to trace"""
+        await asyncio.to_thread(
+            self.client.score,
+            trace_id=trace_id,
+            name=name,
+            value=value,
+            comment=comment
+        )
+Ragas Integration
+python# backend/integrations/ragas_service.py
+from ragas import evaluate
+from ragas.metrics import (
+    faithfulness,
+    answer_relevancy,
+    context_precision,
+    context_recall
+)
+from datasets import Dataset
+import pandas as pd
+
+class RagasService:
+    def __init__(self):
+        self.metrics = {
+            "faithfulness": faithfulness,
+            "answer_relevancy": answer_relevancy,
+            "context_precision": context_precision,
+            "context_recall": context_recall
+        }
+    
+    async def evaluate_rag_responses(
+        self,
+        evaluation_id: str,
+        test_data: List[Dict],
+        metrics: List[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Evaluate RAG responses using Ragas
+        
+        test_data format:
+        [{
+            "question": "What is...",
+            "answer": "The answer is...",
+            "contexts": ["context1", "context2"],
+            "ground_truth": "Expected answer"
+        }]
+        """
+        # Convert to Dataset format
+        dataset = Dataset.from_pandas(pd.DataFrame(test_data))
+        
+        # Select metrics
+        selected_metrics = [
+            self.metrics[m] for m in (metrics or self.metrics.keys())
+        ]
+        
+        # Run evaluation
+        results = await asyncio.to_thread(
+            evaluate,
+            dataset,
+            metrics=selected_metrics
+        )
+        
+        # Store results
+        await self._store_results(evaluation_id, results)
+        
+        return {
+            "evaluation_id": evaluation_id,
+            "scores": results.to_dict(),
+            "dataset_size": len(test_data)
+        }
+    
+    async def _store_results(self, evaluation_id: str, results):
+        """Store evaluation results in PostgreSQL"""
+        # Link with evaluation_results table
+        pass
+DeepEval Integration
+python# backend/integrations/deepeval_service.py
+from deepeval import evaluate
+from deepeval.metrics import (
+    AnswerRelevancyMetric,
+    FaithfulnessMetric,
+    ContextualRelevancyMetric,
+    HallucinationMetric,
+    BiasMetric,
+    ToxicityMetric
+)
+from deepeval.test_case import LLMTestCase
+
+class DeepEvalService:
+    def __init__(self):
+        self.metrics_map = {
+            "answer_relevancy": AnswerRelevancyMetric,
+            "faithfulness": FaithfulnessMetric,
+            "contextual_relevancy": ContextualRelevancyMetric,
+            "hallucination": HallucinationMetric,
+            "bias": BiasMetric,
+            "toxicity": ToxicityMetric
+        }
+    
+    async def evaluate_responses(
+        self,
+        evaluation_id: str,
+        test_cases: List[Dict],
+        metrics: List[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Evaluate responses using DeepEval
+        """
+        # Convert to test cases
+        deepeval_cases = [
+            LLMTestCase(
+                input=tc["input"],
+                actual_output=tc["actual_output"],
+                expected_output=tc.get("expected_output"),
+                context=tc.get("context", []),
+                retrieval_context=tc.get("retrieval_context", [])
+            )
+            for tc in test_cases
+        ]
+        
+        # Initialize metrics
+        metric_instances = [
+            self.metrics_map[m](threshold=0.7)
+            for m in (metrics or ["answer_relevancy"])
+        ]
+        
+        # Run evaluation
+        results = await asyncio.to_thread(
+            evaluate,
+            test_cases=deepeval_cases,
+            metrics=metric_instances
+        )
+        
+        # Store and return results
+        await self._store_results(evaluation_id, results)
+        
+        return {
+            "evaluation_id": evaluation_id,
+            "results": results,
+            "pass_rate": self._calculate_pass_rate(results)
+        }
+Qdrant Integration
+python# backend/integrations/qdrant_service.py
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams, PointStruct
+import numpy as np
+
+class QdrantService:
+    def __init__(self):
+        self.client = QdrantClient(
+            host=settings.QDRANT_HOST,
+            port=settings.QDRANT_PORT
+        )
+    
+    async def create_collection(
+        self,
+        project_id: str,
+        collection_name: str,
+        vector_size: int = 1536,
+        distance: Distance = Distance.COSINE
+    ):
+        """Create a new collection for a project"""
+        full_name = f"{project_id}_{collection_name}"
+        
+        self.client.create_collection(
+            collection_name=full_name,
+            vectors_config=VectorParams(
+                size=vector_size,
+                distance=distance
+            )
+        )
+    
+    async def upsert_vectors(
+        self,
+        collection_name: str,
+        vectors: List[np.ndarray],
+        payloads: List[Dict],
+        ids: List[str] = None
+    ):
+        """Insert or update vectors"""
+        points = [
+            PointStruct(
+                id=ids[i] if ids else i,
+                vector=vectors[i].tolist(),
+                payload=payloads[i]
+            )
+            for i in range(len(vectors))
+        ]
+        
+        self.client.upsert(
+            collection_name=collection_name,
+            points=points
+        )
+    
+    async def search(
+        self,
+        collection_name: str,
+        query_vector: np.ndarray,
+        limit: int = 10,
+        filters: Dict = None
+    ):
+        """Search for similar vectors"""
+        results = self.client.search(
+            collection_name=collection_name,
+            query_vector=query_vector.tolist(),
+            limit=limit,
+            query_filter=filters
+        )
+        return results
+LangGraph Integration
+python# backend/integrations/langgraph_service.py
+from langgraph.graph import StateGraph, END
+from typing import TypedDict, Annotated, Sequence
+import operator
+
+class WorkflowState(TypedDict):
+    messages: Annotated[Sequence[str], operator.add]
+    current_step: str
+    data: Dict[str, Any]
+
+class LangGraphService:
+    async def create_workflow(
+        self,
+        workflow_id: str,
+        graph_definition: Dict[str, Any]
+    ):
+        """Create a workflow from definition"""
+        # Parse graph definition and create LangGraph workflow
+        workflow = StateGraph(WorkflowState)
+        
+        # Add nodes from definition
+        for node in graph_definition["nodes"]:
+            workflow.add_node(
+                node["id"],
+                self._create_node_function(node)
+            )
+        
+        # Add edges
+        for edge in graph_definition["edges"]:
+            workflow.add_edge(edge["from"], edge["to"])
+        
+        # Set entry point
+        workflow.set_entry_point(graph_definition["entry_point"])
+        
+        # Compile
+        app = workflow.compile()
+        
+        # Store compiled workflow
+        await self._store_workflow(workflow_id, app)
+        
+        return workflow_id
+    
+    async def execute_workflow(
+        self,
+        workflow_id: str,
+        input_data: Dict[str, Any]
+    ):
+        """Execute a stored workflow"""
+        app = await self._load_workflow(workflow_id)
+        
+        # Track execution
+        execution_id = str(uuid.uuid4())
+        
+        # Run workflow
+        result = await app.ainvoke(
+            {"messages": [], "current_step": "start", "data": input_data}
+        )
+        
+        # Store execution result
+        await self._store_execution(workflow_id, execution_id, result)
+        
+        return {
+            "execution_id": execution_id,
+            "result": result
+        }
+LLM Guard Integration
+python# backend/integrations/llmguard_service.py
+from llm_guard import scan_prompt, scan_output
+from llm_guard.input_scanners import (
+    Anonymize,
+    BanSubstrings,
+    Code,
+    PromptInjection,
+    TokenLimit,
+    Toxicity
+)
+from llm_guard.output_scanners import (
+    BanSubstrings as OutputBanSubstrings,
+    Bias,
+    Deanonymize,
+    MaliciousURLs,
+    NoRefusal,
+    Relevance,
+    Sensitive
+)
+
+class LLMGuardService:
+    def __init__(self):
+        self.input_scanners = [
+            Anonymize(),
+            PromptInjection(threshold=0.5),
+            TokenLimit(limit=4096),
+            Toxicity(threshold=0.7),
+            Code()
+        ]
+        
+        self.output_scanners = [
+            OutputBanSubstrings(substrings=["forbidden"]),
+            Bias(threshold=0.7),
+            MaliciousURLs(),
+            Relevance(threshold=0.5),
+            Sensitive()
+        ]
+    
+    async def scan_input(
+        self,
+        prompt: str,
+        scanners: List[str] = None
+    ) -> Dict[str, Any]:
+        """Scan input prompt for security issues"""
+        sanitized_prompt, results, is_valid = scan_prompt(
+            self.input_scanners,
+            prompt
+        )
+        
+        return {
+            "is_valid": is_valid,
+            "sanitized_prompt": sanitized_prompt,
+            "scan_results": results
+        }
+    
+    async def scan_output(
+        self,
+        prompt: str,
+        output: str,
+        scanners: List[str] = None
+    ) -> Dict[str, Any]:
+        """Scan model output for security/quality issues"""
+        sanitized_output, results, is_valid = scan_output(
+            self.output_scanners,
+            prompt,
+            output
+        )
+        
+        return {
+            "is_valid": is_valid,
+            "sanitized_output": sanitized_output,
+            "scan_results": results
+        }
