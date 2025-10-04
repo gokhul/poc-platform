@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import List
+from typing import List, Dict, Any
 from uuid import UUID
+import json
 
 from core.database import get_db
 from models.schemas import Workflow, WorkflowExecution
@@ -10,6 +11,7 @@ from models.pydantic_models import (
     WorkflowCreate, WorkflowResponse,
     WorkflowExecutionCreate, WorkflowExecutionResponse
 )
+from services.langgraph_service import langgraph_service
 
 router = APIRouter()
 
@@ -108,5 +110,110 @@ async def list_workflow_executions(
     )
     executions = result.scalars().all()
     return executions
+
+
+# LangGraph specific endpoints
+@router.post("/langgraph/create")
+async def create_langgraph_workflow(
+    name: str,
+    description: str,
+    nodes: List[Dict[str, Any]],
+    edges: List[Dict[str, str]],
+    config: Dict[str, Any] = None
+):
+    """Create a new LangGraph workflow"""
+    try:
+        workflow_id = f"workflow_{name.lower().replace(' ', '_')}"
+        
+        workflow_data = await langgraph_service.create_workflow(
+            workflow_id=workflow_id,
+            name=name,
+            description=description,
+            nodes=nodes,
+            edges=edges,
+            config=config
+        )
+        
+        return {
+            "success": True,
+            "workflow": workflow_data
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/langgraph/{workflow_id}/execute")
+async def execute_langgraph_workflow(
+    workflow_id: str,
+    input_data: Dict[str, Any]
+):
+    """Execute a LangGraph workflow"""
+    try:
+        result = await langgraph_service.execute_workflow(
+            workflow_id=workflow_id,
+            input_data=input_data
+        )
+        
+        return {
+            "success": True,
+            "execution": result
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/langgraph/{workflow_id}")
+async def get_langgraph_workflow(workflow_id: str):
+    """Get LangGraph workflow information"""
+    workflow = langgraph_service.get_workflow(workflow_id)
+    
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    
+    return {
+        "success": True,
+        "workflow": workflow
+    }
+
+
+@router.get("/langgraph/{workflow_id}/execution/{execution_id}")
+async def get_langgraph_execution(workflow_id: str, execution_id: str):
+    """Get LangGraph execution information"""
+    execution = langgraph_service.get_execution(execution_id)
+    
+    if not execution:
+        raise HTTPException(status_code=404, detail="Execution not found")
+    
+    return {
+        "success": True,
+        "execution": execution
+    }
+
+
+@router.get("/langgraph/")
+async def list_langgraph_workflows():
+    """List all LangGraph workflows"""
+    workflows = langgraph_service.list_workflows()
+    
+    return {
+        "success": True,
+        "workflows": workflows
+    }
+
+
+@router.delete("/langgraph/{workflow_id}")
+async def delete_langgraph_workflow(workflow_id: str):
+    """Delete a LangGraph workflow"""
+    success = langgraph_service.delete_workflow(workflow_id)
+    
+    if not success:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    
+    return {
+        "success": True,
+        "message": f"Workflow {workflow_id} deleted successfully"
+    }
 
 
